@@ -13,13 +13,15 @@ final class Timezone {
     var name: String
     var identifier: String
     var colorHex: String?
+    var isDefault: Bool = false
     @Relationship(deleteRule: .cascade, inverse: \Event.timezone)
     var events: [Event] = []
     
-    init(name: String, identifier: String, colorHex: String = "#007AFF") {
+    init(name: String, identifier: String, colorHex: String = "#007AFF", isDefault: Bool = false) {
         self.name = name
         self.identifier = identifier
         self.colorHex = colorHex
+        self.isDefault = isDefault
     }
     
     var color: Color {
