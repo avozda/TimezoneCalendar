@@ -1,3 +1,10 @@
+//
+//  WorldClockView.swift
+//  TimezoneCalendar
+//
+//  Created by Adam Vožda on 13.05.2025.
+//
+
 import SwiftUI
 import SwiftData
 
@@ -188,7 +195,6 @@ struct WorldClockCard: View {
                     .frame(width: 12, height: 12)
             }
             
-            // Current time
             HStack(alignment: .firstTextBaseline) {
                 Text(formattedTime(for: timezone))
                     .font(.system(size: 42, weight: .medium, design: .rounded))
@@ -199,12 +205,10 @@ struct WorldClockCard: View {
                     .padding(.leading, 4)
             }
             
-            // Date
             Text(formattedDate(for: timezone))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             
-            // Upcoming events
             if !events.isEmpty {
                 Divider()
                 

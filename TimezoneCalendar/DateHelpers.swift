@@ -1,11 +1,12 @@
+//
+//  DateHelpers.swift
+//  TimezoneCalendar
+//
+//  Created by Adam Vožda on 13.05.2025.
+//
 import Foundation
 
 extension Date {
-    /// Converts a date from one timezone to another and formats it as a string
-    /// - Parameters:
-    ///   - sourceIdentifier: The identifier of the source timezone. If nil, current timezone is used
-    ///   - destinationIdentifier: The identifier of the destination timezone
-    /// - Returns: A formatted string representing the date in the destination timezone
     func convertToTimezone(from sourceIdentifier: String?, to destinationIdentifier: String) -> String {
         let sourceTimeZone = sourceIdentifier.flatMap { TimeZone(identifier: $0) } ?? TimeZone.current
         let destinationTimeZone = TimeZone(identifier: destinationIdentifier) ?? TimeZone.current
@@ -23,11 +24,6 @@ extension Date {
         return formatter.string(from: convertedDate)
     }
     
-    /// Converts a date from one timezone to another and returns the converted Date
-    /// - Parameters:
-    ///   - sourceIdentifier: The identifier of the source timezone. If nil, current timezone is used
-    ///   - destinationIdentifier: The identifier of the destination timezone
-    /// - Returns: A Date adjusted for the destination timezone
     func convertedToTimezone(from sourceIdentifier: String?, to destinationIdentifier: String) -> Date {
         let sourceTimeZone = sourceIdentifier.flatMap { TimeZone(identifier: $0) } ?? TimeZone.current
         let destinationTimeZone = TimeZone(identifier: destinationIdentifier) ?? TimeZone.current

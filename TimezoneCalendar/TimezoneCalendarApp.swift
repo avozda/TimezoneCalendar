@@ -44,7 +44,7 @@ struct TimezoneCalendarApp: App {
                 let defaultTimezones = try context.fetch(descriptor)
                 
                 if defaultTimezones.isEmpty {
-                    // Create a default timezone based on user's current timezone
+                    // Create a default timezone based on users current timezone
                     let currentTZ = TimeZone.current
                     let defaultName = currentTZ.localizedName(for: .generic, locale: .current) ?? "Local Time"
                     let defaultTimezone = Timezone(

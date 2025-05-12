@@ -21,10 +21,9 @@ final class Event {
     var timezone: Timezone?
     var eventDescription: String = ""
     
-    // Recurrence properties
     var recurrenceFrequency: RecurrenceFrequency? = RecurrenceFrequency.none
     var recurrenceEndDate: Date?
-    var recurrenceCount: Int = 0 // 0 means no limit based on count
+    var recurrenceCount: Int = 0
     
     init(title: String, dateTime: Date, timezone: Timezone? = nil, description: String = "", 
          recurrenceFrequency: RecurrenceFrequency? = nil, recurrenceEndDate: Date? = nil, recurrenceCount: Int = 0) {
@@ -62,13 +61,12 @@ final class Event {
         var currentDate = dateTime
         var count = 0
         
-        // Check if first event is within date range
         if currentDate >= startDate && currentDate <= endDate {
             dates.append(currentDate)
             count += 1
         }
         
-        // If there's a recurrence count limit and we've hit it, return
+        // If there is a recurrence count limit and we have hit it, return
         if recurrenceCount > 0 && count >= recurrenceCount {
             return dates
         }
@@ -93,12 +91,12 @@ final class Event {
             guard let next = nextDate else { break }
             currentDate = next
             
-            // Check if we've reached the recurrence end date
+            // Check if we have reached the recurrence end date
             if let recurrenceEndDate = recurrenceEndDate, currentDate > recurrenceEndDate {
                 break
             }
             
-            // Add date if it's in our search range
+            // Add date if it is in our search range
             if currentDate >= startDate && currentDate <= endDate {
                 dates.append(currentDate)
                 count += 1

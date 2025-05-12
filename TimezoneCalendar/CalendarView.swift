@@ -4,7 +4,6 @@
 //
 //  Created by Adam Vožda on 11.05.2025.
 //
-// Note: EventRow component is defined in EventRow.swift
 
 import SwiftUI
 import SwiftData
@@ -21,15 +20,14 @@ struct CalendarView: View {
         let dayStart = calendar.startOfDay(for: selectedDate)
         let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart)!.addingTimeInterval(-1)
         
-        // Get base events that directly occur on the selected date
+        
         let baseEvents = events.filter { event in
             calendar.isDate(event.dateTime, inSameDayAs: selectedDate)
         }
         
-        // Get recurring events that have an occurrence on the selected date
         let recurringEvents = events.filter { event -> Bool in
             event.isRecurring && 
-            !calendar.isDate(event.dateTime, inSameDayAs: selectedDate) && // Not already counted above
+            !calendar.isDate(event.dateTime, inSameDayAs: selectedDate) &&
             event.occurrenceDates(from: dayStart, to: dayEnd).count > 0
         }
         
@@ -267,7 +265,6 @@ struct AddEventView: View {
     @State private var selectedTimezoneID: PersistentIdentifier?
     @State private var description = ""
     
-    // Recurrence states
     @State private var isRecurring = false
     @State private var recurrenceFrequency: RecurrenceFrequency = .none
     @State private var recurrenceEndType: RecurrenceEndType = .never
@@ -429,7 +426,6 @@ struct AddEventView: View {
             case .afterOccurrences:
                 count = recurrenceCount
             case .never:
-                // Both endDate and count remain nil/0
                 break
             }
         }

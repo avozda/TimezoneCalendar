@@ -32,7 +32,6 @@ final class Timezone {
     }
 }
 
-// Color extension to support hex colors
 extension Color {
     init?(hex: String) {
         var hexSanitized = hex.trimmingCharacters(in: .whitespacesAndNewlines)

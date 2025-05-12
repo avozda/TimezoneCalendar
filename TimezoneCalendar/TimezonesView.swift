@@ -69,7 +69,7 @@ struct TimezonesView: View {
         withAnimation {
             for index in offsets {
                 let timezone = timezones[index]
-                // Show alert if it's the default timezone
+                // Show alert if it is the default timezone
                 if timezone.isDefault {
                     showingDefaultAlert = true
                 } else {
@@ -88,12 +88,11 @@ struct AddTimezoneView: View {
     @State private var selectedIdentifier = TimeZone.current.identifier
     @State private var selectedColor = Color.blue
     
-    // Predefined colors for selection
     let colorOptions: [Color] = [
         .blue, .red, .green, .orange, .purple, .pink, .yellow, .teal, .indigo, .mint
     ]
     
-    // Convert Color to hex string
+
     func hexString(from color: Color) -> String {
         let uiColor = UIColor(color)
         var red: CGFloat = 0
