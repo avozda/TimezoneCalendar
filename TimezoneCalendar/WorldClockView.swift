@@ -99,7 +99,14 @@ struct EventCard: View {
     
     var timeUntilEvent: String {
         let calendar = Calendar.current
-        let components = calendar.dateComponents([.hour, .minute], from: currentDate, to: event.dateTime)
+        
+        // Convert the current date to the event's timezone if available
+        var adjustedCurrentDate = currentDate
+        if let eventTimezoneId = event.timezone?.identifier {
+            adjustedCurrentDate = currentDate.convertedToTimezone(from: nil, to: eventTimezoneId)
+        }
+        
+        let components = calendar.dateComponents([.hour, .minute], from: adjustedCurrentDate, to: event.dateTime)
         
         if let hours = components.hour, let minutes = components.minute {
             if hours < 0 || minutes < 0 {

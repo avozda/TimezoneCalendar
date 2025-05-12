@@ -4,6 +4,8 @@
 //
 //  Created by Adam Vožda on 11.05.2025.
 //
+// Note: EventRow component is defined in EventRow.swift
+
 import SwiftUI
 import SwiftData
 
@@ -16,9 +18,22 @@ struct CalendarView: View {
     
     var eventsForSelectedDate: [Event] {
         let calendar = Calendar.current
-        return events.filter { event in
+        let dayStart = calendar.startOfDay(for: selectedDate)
+        let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart)!.addingTimeInterval(-1)
+        
+        // Get base events that directly occur on the selected date
+        let baseEvents = events.filter { event in
             calendar.isDate(event.dateTime, inSameDayAs: selectedDate)
         }
+        
+        // Get recurring events that have an occurrence on the selected date
+        let recurringEvents = events.filter { event -> Bool in
+            event.isRecurring && 
+            !calendar.isDate(event.dateTime, inSameDayAs: selectedDate) && // Not already counted above
+            event.occurrenceDates(from: dayStart, to: dayEnd).count > 0
+        }
+        
+        return baseEvents + recurringEvents
     }
     
     var body: some View {
@@ -79,49 +94,6 @@ struct CalendarView: View {
     }
 }
 
-struct EventRow: View {
-    let event: Event
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            if let timezone = event.timezone {
-                Rectangle()
-                    .fill(timezone.color)
-                    .frame(width: 4)
-                    .cornerRadius(2)
-            } else {
-                Rectangle()
-                    .fill(.clear)
-                    .frame(width: 4)
-            }
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(event.title)
-                    .font(.headline)
-                
-                HStack {
-                    Text(event.localDateTime, format: .dateTime.hour(.twoDigits(amPM: .omitted)).minute())
-                        .font(.subheadline)
-                    
-                    if let timezone = event.timezone {
-                        Text("(\(timezone.name))")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-            
-            Spacer()
-        }
-        .padding(.vertical, 4)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(event.timezone?.color.opacity(0.1) ?? Color.clear)
-        )
-        .cornerRadius(8)
-    }
-}
-
 struct EventDetailView: View {
     let event: Event
     @Query private var timezones: [Timezone]
@@ -172,6 +144,17 @@ struct EventDetailView: View {
                         }
                         .padding(.top, 2)
                     }
+                    
+                    if event.isRecurring {
+                        HStack(spacing: 6) {
+                            Image(systemName: "repeat")
+                                .foregroundStyle(.secondary)
+                            
+                            Text(recurrenceDescription)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.top, 2)
+                    }
                 }
                 .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 16))
             }
@@ -196,7 +179,7 @@ struct EventDetailView: View {
                             VStack(alignment: .leading) {
                                 Text(timezone.name)
                                     .font(.headline)
-                                Text(convertToTimezone(date: event.dateTime, from: event.timezone?.identifier, to: timezone.identifier))
+                                Text(event.dateTime.convertToTimezone(from: event.timezone?.identifier, to: timezone.identifier))
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                             }
@@ -245,21 +228,32 @@ struct EventDetailView: View {
         dismiss()
     }
     
-    private func convertToTimezone(date: Date, from sourceIdentifier: String?, to destinationIdentifier: String) -> String {
-        let sourceTimeZone = sourceIdentifier.flatMap { TimeZone(identifier: $0) } ?? TimeZone.current
-        let destinationTimeZone = TimeZone(identifier: destinationIdentifier) ?? TimeZone.current
+    private var recurrenceDescription: String {
+        var description = "Repeats "
         
-        let sourceOffset = sourceTimeZone.secondsFromGMT(for: date)
-        let destinationOffset = destinationTimeZone.secondsFromGMT(for: date)
-        let timeInterval = TimeInterval(destinationOffset - sourceOffset)
+        switch event.recurrenceFrequency {
+        case .daily:
+            description += "daily"
+        case .weekly:
+            description += "weekly"
+        case .monthly:
+            description += "monthly"
+        case nil:
+            return ""
+        case .some(.none):
+            return ""
+        }
         
-        let convertedDate = date.addingTimeInterval(timeInterval)
+        if let endDate = event.recurrenceEndDate {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .medium
+            formatter.timeStyle = .none
+            description += " until \(formatter.string(from: endDate))"
+        } else if event.recurrenceCount > 0 {
+            description += " for \(event.recurrenceCount) occurrences"
+        }
         
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d, HH:mm"
-        formatter.timeZone = TimeZone.current
-        
-        return formatter.string(from: convertedDate)
+        return description
     }
 }
 
@@ -272,6 +266,19 @@ struct AddEventView: View {
     @State private var dateTime: Date
     @State private var selectedTimezoneID: PersistentIdentifier?
     @State private var description = ""
+    
+    // Recurrence states
+    @State private var isRecurring = false
+    @State private var recurrenceFrequency: RecurrenceFrequency = .none
+    @State private var recurrenceEndType: RecurrenceEndType = .never
+    @State private var recurrenceEndDate: Date = Date().addingTimeInterval(60*60*24*30) // Default to 30 days
+    @State private var recurrenceCount: Int = 5
+    
+    enum RecurrenceEndType {
+        case never
+        case onDate
+        case afterOccurrences
+    }
     
     init(selectedDate: Date) {
         _dateTime = State(initialValue: selectedDate)
@@ -292,6 +299,39 @@ struct AddEventView: View {
                 Section("Description") {
                     TextEditor(text: $description)
                         .frame(minHeight: 100)
+                }
+                
+                Section("Recurrence") {
+                    Toggle("Repeat Event", isOn: $isRecurring)
+                        .onChange(of: isRecurring) { oldValue, newValue in
+                            if newValue {
+                                recurrenceFrequency = .weekly
+                            } else {
+                                recurrenceFrequency = .none
+                            }
+                        }
+                    
+                    if isRecurring {
+                        Picker("Frequency", selection: $recurrenceFrequency) {
+                            Text("Daily").tag(RecurrenceFrequency.daily)
+                            Text("Weekly").tag(RecurrenceFrequency.weekly)
+                            Text("Monthly").tag(RecurrenceFrequency.monthly)
+                        }
+                        .pickerStyle(.menu)
+                        
+                        Picker("Ends", selection: $recurrenceEndType) {
+                            Text("Never").tag(RecurrenceEndType.never)
+                            Text("On Date").tag(RecurrenceEndType.onDate)
+                            Text("After").tag(RecurrenceEndType.afterOccurrences)
+                        }
+                        .pickerStyle(.menu)
+                        
+                        if recurrenceEndType == .onDate {
+                            DatePicker("End Date", selection: $recurrenceEndDate, displayedComponents: .date)
+                        } else if recurrenceEndType == .afterOccurrences {
+                            Stepper("\(recurrenceCount) occurrences", value: $recurrenceCount, in: 1...100)
+                        }
+                    }
                 }
                 
                 Section("Timezone") {
@@ -377,7 +417,33 @@ struct AddEventView: View {
             }
         }
         
-        let newEvent = Event(title: title, dateTime: dateTime, timezone: eventTimezone, description: description)
+        // Set up recurrence properties
+        let frequency = isRecurring ? recurrenceFrequency : .none
+        var endDate: Date? = nil
+        var count = 0
+        
+        if isRecurring {
+            switch recurrenceEndType {
+            case .onDate:
+                endDate = recurrenceEndDate
+            case .afterOccurrences:
+                count = recurrenceCount
+            case .never:
+                // Both endDate and count remain nil/0
+                break
+            }
+        }
+        
+        let newEvent = Event(
+            title: title, 
+            dateTime: dateTime, 
+            timezone: eventTimezone, 
+            description: description,
+            recurrenceFrequency: frequency,
+            recurrenceEndDate: endDate,
+            recurrenceCount: count
+        )
+        
         modelContext.insert(newEvent)
     }
 }
