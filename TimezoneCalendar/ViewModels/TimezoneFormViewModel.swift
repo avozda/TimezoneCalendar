@@ -4,7 +4,7 @@ import Observation
 
 @Observable
 class TimezoneFormViewModel {
-    var modelContext: ModelContext
+    var modelContext: ModelContext?
     var name: String = ""
     var selectedIdentifier: String = TimeZone.current.identifier
     var selectedColor: Color = .blue
@@ -15,8 +15,7 @@ class TimezoneFormViewModel {
         .blue, .red, .green, .orange, .purple, .pink, .yellow, .teal, .indigo, .mint
     ]
     
-    init(modelContext: ModelContext, existingTimezone: Timezone? = nil) {
-        self.modelContext = modelContext
+    init(existingTimezone: Timezone? = nil) {
         self.existingTimezone = existingTimezone
         
         if let timezone = existingTimezone {
@@ -28,6 +27,10 @@ class TimezoneFormViewModel {
                 self.selectedColor = Color(hex: colorHex) ?? .blue
             }
         }
+    }
+
+    func setContext(modelContext: ModelContext) {
+        self.modelContext = modelContext
     }
     
     var availableTimezones: [String] {
@@ -62,7 +65,7 @@ class TimezoneFormViewModel {
         } else {
             // Create new timezone
             let newTimezone = Timezone(name: name, identifier: selectedIdentifier, colorHex: colorHex)
-            modelContext.insert(newTimezone)
+            modelContext!.insert(newTimezone)
         }
     }
 } 

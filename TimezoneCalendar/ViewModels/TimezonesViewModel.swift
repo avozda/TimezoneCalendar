@@ -4,11 +4,14 @@ import Observation
 
 @Observable
 class TimezonesViewModel {
-    var modelContext: ModelContext
+    var modelContext: ModelContext?
     var timezones: [Timezone] = []
     var showingDefaultAlert: Bool = false
     
-    init(modelContext: ModelContext) {
+    init() {
+    }
+
+    func setContext(modelContext: ModelContext) {
         self.modelContext = modelContext
         fetchTimezones()
     }
@@ -16,7 +19,7 @@ class TimezonesViewModel {
     func fetchTimezones() {
         let descriptor = FetchDescriptor<Timezone>()
         do {
-            timezones = try modelContext.fetch(descriptor)
+            timezones = try modelContext!.fetch(descriptor)
         } catch {
             print("Error fetching timezones: \(error)")
         }
@@ -31,7 +34,7 @@ class TimezonesViewModel {
                 return
             }
             
-            modelContext.delete(timezone)
+            modelContext!.delete(timezone)
         }
         fetchTimezones()
     }

@@ -10,19 +10,14 @@ import SwiftData
 
 struct WorldClockView: View {
     @Environment(\.modelContext) private var modelContext
-    @State private var viewModel: WorldClockViewModel
+    @State private var viewModel: WorldClockViewModel = WorldClockViewModel()
     @State private var timer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
     
-    init() {
-        // Initialize with empty ViewModel, will be set in onAppear
-        _viewModel = State(initialValue: WorldClockViewModel(modelContext: ModelContext(try! ModelContainer(for: Event.self, Timezone.self))))
-    }
     
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
-                    // Upcoming events section
                     if !viewModel.upcomingAllEvents.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
@@ -50,7 +45,6 @@ struct WorldClockView: View {
                         .padding(.vertical, 8)
                     }
                     
-                    // World clocks
                     LazyVStack(spacing: 16) {
                         if viewModel.timezones.isEmpty {
                             ContentUnavailableView(
@@ -79,7 +73,7 @@ struct WorldClockView: View {
             }
         }
         .onAppear {
-            viewModel = WorldClockViewModel(modelContext: modelContext)
+            viewModel.setContext(modelContext: modelContext)
         }
     }
 }
@@ -114,7 +108,6 @@ struct EventCard: View {
     var body: some View {
         NavigationLink(destination: EventDetailView(event: event)) {
             VStack(alignment: .leading, spacing: 8) {
-                // Time info
                 HStack {
                     Text(event.dateTime, format: .dateTime.hour().minute())
                         .font(.headline)
@@ -126,12 +119,10 @@ struct EventCard: View {
                         .foregroundStyle(.secondary)
                 }
                 
-                // Event title
                 Text(event.title)
                     .font(.subheadline)
                     .lineLimit(1)
                 
-                // Timezone info if available
                 if let timezone = event.timezone {
                     HStack {
                         Circle()
@@ -162,7 +153,6 @@ struct WorldClockCard: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Timezone header
             HStack {
                 VStack(alignment: .leading) {
                     Text(timezone.name)

@@ -10,14 +10,10 @@ import SwiftData
 
 struct TimezonesView: View {
     @Environment(\.modelContext) private var modelContext
-    @State private var viewModel: TimezonesViewModel
+    @State private var viewModel: TimezonesViewModel = TimezonesViewModel()
     @State private var isAddingTimezone = false
     @State private var editingTimezone: Timezone? = nil
     
-    init() {
-        // Initialize with empty ViewModel, will be set in onAppear
-        _viewModel = State(initialValue: TimezonesViewModel(modelContext: ModelContext(try! ModelContainer(for: Event.self, Timezone.self))))
-    }
     
     var body: some View {
         NavigationStack {
@@ -77,7 +73,7 @@ struct TimezonesView: View {
             }
         }
         .onAppear {
-            viewModel = TimezonesViewModel(modelContext: modelContext)
+            viewModel.setContext(modelContext: modelContext)
         }
         .onChange(of: isAddingTimezone) { _, newValue in
             if newValue == false {
@@ -87,16 +83,13 @@ struct TimezonesView: View {
         }
     }
     
-    // Embedded TimezoneFormView (previously a separate file)
     struct TimezoneFormSheet: View {
         @Environment(\.dismiss) private var dismiss
         @Environment(\.modelContext) private var modelContext
         @State private var viewModel: TimezoneFormViewModel
         
         init(existingTimezone: Timezone? = nil) {
-            // Initialize with default values, will be updated in onAppear
             _viewModel = State(initialValue: TimezoneFormViewModel(
-                modelContext: ModelContext(try! ModelContainer(for: Event.self, Timezone.self)),
                 existingTimezone: existingTimezone
             ))
         }
@@ -155,10 +148,7 @@ struct TimezonesView: View {
                 }
             }
             .onAppear {
-                viewModel = TimezoneFormViewModel(
-                    modelContext: modelContext,
-                    existingTimezone: viewModel.existingTimezone
-                )
+                viewModel.setContext(modelContext: modelContext)
             }
         }
     }

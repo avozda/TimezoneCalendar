@@ -15,16 +15,13 @@ struct EventDetailView: View {
     @State private var viewModel: EventDetailViewModel
     
     init(event: Event) {
-        // Initialize with default values, will be updated in onAppear
         _viewModel = State(initialValue: EventDetailViewModel(
-            modelContext: ModelContext(try! ModelContainer(for: Event.self, Timezone.self)),
             event: event
         ))
     }
     
     var body: some View {
         List {
-            // Header with title and time
             Section {
                 VStack(alignment: .leading, spacing: 12) {
                     Text(viewModel.event.title)
@@ -69,7 +66,6 @@ struct EventDetailView: View {
                 .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 16))
             }
             
-            // Description section
             if !viewModel.event.eventDescription.isEmpty {
                 Section {
                     Text(viewModel.event.eventDescription)
@@ -81,7 +77,6 @@ struct EventDetailView: View {
                 }
             }
             
-            // Timezones section
             if !viewModel.timezones.isEmpty {
                 Section {
                     ForEach(viewModel.timezones) { timezone in
@@ -89,7 +84,7 @@ struct EventDetailView: View {
                             VStack(alignment: .leading) {
                                 Text(timezone.name)
                                     .font(.headline)
-                                Text(viewModel.event.dateTime.convertToTimezone(from: viewModel.event.timezone?.identifier, to: timezone.identifier))
+                                Text(viewModel.event.dateTime.convertToTimezoneString(from: viewModel.event.timezone?.identifier, to: timezone.identifier))
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                             }
@@ -107,7 +102,6 @@ struct EventDetailView: View {
                 }
             }
             
-            // Delete button section
             Section {
                 Button(role: .destructive) {
                     viewModel.showingDeleteConfirmation = true
@@ -135,10 +129,8 @@ struct EventDetailView: View {
             Text("Are you sure you want to delete this event? This action cannot be undone.")
         }
         .onAppear {
-            viewModel = EventDetailViewModel(
-                modelContext: modelContext,
-                event: viewModel.event
-            )
+            viewModel.setContext(modelContext: modelContext)
         }
     }
 }
+
