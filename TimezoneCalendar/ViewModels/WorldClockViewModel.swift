@@ -4,13 +4,16 @@ import Observation
 
 @Observable
 class WorldClockViewModel {
-    var modelContext: ModelContext
+    var modelContext: ModelContext?
     var timezones: [Timezone] = []
     var events: [Event] = []
     var currentDate: Date = Date()
     var showingAllEvents: Bool = false
     
-    init(modelContext: ModelContext) {
+    init() {
+    }
+    
+    func setContext(modelContext: ModelContext) {
         self.modelContext = modelContext
         fetchData()
     }
@@ -23,7 +26,7 @@ class WorldClockViewModel {
     func fetchTimezones() {
         let descriptor = FetchDescriptor<Timezone>()
         do {
-            timezones = try modelContext.fetch(descriptor)
+            timezones = try modelContext!.fetch(descriptor)
         } catch {
             print("Error fetching timezones: \(error)")
         }
@@ -32,7 +35,7 @@ class WorldClockViewModel {
     func fetchEvents() {
         let descriptor = FetchDescriptor<Event>(sortBy: [SortDescriptor(\.dateTime)])
         do {
-            events = try modelContext.fetch(descriptor)
+            events = try modelContext!.fetch(descriptor)
         } catch {
             print("Error fetching events: \(error)")
         }

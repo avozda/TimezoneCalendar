@@ -4,7 +4,7 @@ import Observation
 
 @Observable
 class EventFormViewModel {
-    var modelContext: ModelContext
+    var modelContext: ModelContext?
     var title: String = ""
     var dateTime: Date = Date()
     var selectedTimezoneID: PersistentIdentifier?
@@ -14,11 +14,10 @@ class EventFormViewModel {
     var isEditing: Bool = false
     var existingEvent: Event?
     
-    init(modelContext: ModelContext, selectedDate: Date = Date(), existingEvent: Event? = nil) {
-        self.modelContext = modelContext
+    init(selectedDate: Date = Date(), existingEvent: Event? = nil) {
         self.dateTime = selectedDate
         self.existingEvent = existingEvent
-        fetchTimezones()
+
         
         if let event = existingEvent {
             self.isEditing = true
@@ -31,11 +30,16 @@ class EventFormViewModel {
             }
         }
     }
+
+    func setContext(modelContext: ModelContext) {
+        self.modelContext = modelContext
+        fetchTimezones()
+    }
     
     func fetchTimezones() {
         let descriptor = FetchDescriptor<Timezone>()
         do {
-            timezones = try modelContext.fetch(descriptor)
+            timezones = try modelContext!.fetch(descriptor)
             
             // Set default timezone as initial selection if available and not already set
             if selectedTimezoneID == nil, let defaultTZ = defaultTimezone {
@@ -75,7 +79,7 @@ class EventFormViewModel {
                 description: description
             )
             
-            modelContext.insert(newEvent)
+            modelContext!.insert(newEvent)
         }
     }
 } 

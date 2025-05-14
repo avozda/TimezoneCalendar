@@ -8,21 +8,18 @@
 import SwiftUI
 import SwiftData
 
-// Import the Notification.Name extension from EventDetailView
 extension Notification.Name {
     static let eventDeleted = Notification.Name("eventDeleted")
 }
 
 struct CalendarView: View {
     @Environment(\.modelContext) private var modelContext
-    @State private var viewModel: CalendarViewModel
+    @State private var viewModel: CalendarViewModel = CalendarViewModel()
     @State private var isAddingEvent = false
     @State private var editingEvent: Event? = nil
-    
-    init() {
-        // Initialize with empty ViewModel, will be set in onAppear
-        _viewModel = State(initialValue: CalendarViewModel(modelContext: ModelContext(try! ModelContainer(for: Event.self, Timezone.self))))
-    }
+    @State private var selectedEvent: Event? = nil
+    @State private var isEditMode = false
+
     
     var body: some View {
         NavigationStack {
@@ -42,12 +39,23 @@ struct CalendarView: View {
                 } else {
                     List {
                         ForEach(viewModel.eventsForSelectedDate) { event in
-                            NavigationLink(destination: EventDetailView(event: event)) {
+                            Button(action: {
+                                if isEditMode {
+                                    // In edit mode, open event for editing
+                                    editingEvent = event
+                                    isAddingEvent = true
+                                } else {
+                                    // In normal mode, select for navigation
+                                    selectedEvent = event
+                                }
+                            }) {
                                 EventRowView(event: event)
                                     .listRowSeparator(.hidden)
                                     .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                                    .padding(.vertical, 4)
                             }
-                            .buttonStyle(PlainButtonStyle())
+                            .buttonStyle(BorderlessButtonStyle())
+                            .foregroundColor(.primary)
                         }
                         .onDelete(perform: viewModel.deleteEvents)
                     }
@@ -55,10 +63,19 @@ struct CalendarView: View {
                     .background(Color(UIColor.systemGroupedBackground))
                 }
             }
+            .navigationDestination(item: $selectedEvent) { event in
+                EventDetailView(event: event)
+            }
             .navigationTitle("Calendar")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
+                    Button(action: {
+                        withAnimation {
+                            isEditMode.toggle()
+                        }
+                    }) {
+                        Text(isEditMode ? "Done" : "Edit")
+                    }
                 }
                 ToolbarItem {
                     Button(action: { 
@@ -74,9 +91,9 @@ struct CalendarView: View {
             }
         }
         .onAppear {
-            viewModel = CalendarViewModel(modelContext: modelContext)
+            viewModel.setContext(modelContext: modelContext)
             
-            // Setup notification observer for event deletion
+            
             NotificationCenter.default.addObserver(
                 forName: .eventDeleted,
                 object: nil,
@@ -97,7 +114,6 @@ struct CalendarView: View {
         }
     }
     
-    // Embedded EventRow (previously a separate file)
     struct EventRowView: View {
         let event: Event
         @State private var viewModel: EventRowViewModel
@@ -149,16 +165,13 @@ struct CalendarView: View {
         }
     }
     
-    // Embedded EventFormView (previously a separate file)
     struct EventFormSheet: View {
         @Environment(\.dismiss) private var dismiss
         @Environment(\.modelContext) private var modelContext
         @State private var viewModel: EventFormViewModel
         
         init(selectedDate: Date, existingEvent: Event? = nil) {
-            // Initialize with default values, will be updated in onAppear
             _viewModel = State(initialValue: EventFormViewModel(
-                modelContext: ModelContext(try! ModelContainer(for: Event.self, Timezone.self)), 
                 selectedDate: selectedDate,
                 existingEvent: existingEvent
             ))
@@ -228,11 +241,7 @@ struct CalendarView: View {
                 }
             }
             .onAppear {
-                viewModel = EventFormViewModel(
-                    modelContext: modelContext, 
-                    selectedDate: viewModel.dateTime,
-                    existingEvent: viewModel.existingEvent
-                )
+                viewModel.setContext(modelContext: modelContext)
             }
         }
     }

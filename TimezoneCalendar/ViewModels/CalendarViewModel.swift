@@ -4,11 +4,14 @@ import Observation
 
 @Observable
 class CalendarViewModel {
-    var modelContext: ModelContext
+    var modelContext: ModelContext?
     var events: [Event] = []
     var selectedDate: Date = Date()
     
-    init(modelContext: ModelContext) {
+    init() {
+    }
+    
+    func setContext(modelContext: ModelContext) {
         self.modelContext = modelContext
         fetchEvents()
     }
@@ -16,7 +19,7 @@ class CalendarViewModel {
     func fetchEvents() {
         let descriptor = FetchDescriptor<Event>(sortBy: [SortDescriptor(\.dateTime)])
         do {
-            events = try modelContext.fetch(descriptor)
+            events = try modelContext!.fetch(descriptor)
         } catch {
             print("Error fetching events: \(error)")
         }
@@ -31,14 +34,14 @@ class CalendarViewModel {
     }
     
     func deleteEvent(_ event: Event) {
-        modelContext.delete(event)
+        modelContext!.delete(event)
         fetchEvents()
     }
     
     func deleteEvents(at offsets: IndexSet) {
         let eventsToDelete = offsets.map { eventsForSelectedDate[$0] }
         for event in eventsToDelete {
-            modelContext.delete(event)
+            modelContext!.delete(event)
         }
         fetchEvents()
     }
