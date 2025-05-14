@@ -2,7 +2,7 @@
 //  TimezoneCalendarApp.swift
 //  TimezoneCalendar
 //
-//  Created by Adam Vožda on 10.05.2025.
+//  Created by Adam Vožda (xvozdaa00) on 10.05.2025.
 //
 
 import SwiftUI

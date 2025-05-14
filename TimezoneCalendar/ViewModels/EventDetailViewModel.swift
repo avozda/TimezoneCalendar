@@ -1,3 +1,10 @@
+//
+//  EventDetailViewModel.swift
+//  TimezoneCalendar
+//
+//  Created by Adam Vožda on 12.05.2025.
+//
+
 import SwiftUI
 import SwiftData
 import Observation
