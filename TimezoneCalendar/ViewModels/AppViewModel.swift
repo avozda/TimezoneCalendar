@@ -20,10 +20,11 @@ class AppViewModel {
         }
     }
     
+    @MainActor
     func setupDefaultTimezone() {
-        Task {
+        Task { @MainActor in
             do {
-                let context = await modelContainer.mainContext
+                let context = modelContainer.mainContext
                 
                 // Check if we already have a default timezone
                 let descriptor = FetchDescriptor<Timezone>(predicate: #Predicate { $0.isDefault == true })

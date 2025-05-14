@@ -14,9 +14,8 @@ struct WorldClockView: View {
     @State private var timer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
     
     init() {
-        // This will be properly initialized in the onAppear modifier
-        let container = try! ModelContainer(for: Event.self, Timezone.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
-        _viewModel = State(initialValue: WorldClockViewModel(modelContext: ModelContext(container)))
+        // Initialize with empty ViewModel, will be set in onAppear
+        _viewModel = State(initialValue: WorldClockViewModel(modelContext: ModelContext(try! ModelContainer(for: Event.self, Timezone.self))))
     }
     
     var body: some View {

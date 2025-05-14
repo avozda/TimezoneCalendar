@@ -8,16 +8,16 @@
 import SwiftUI
 import SwiftData
 
+
 struct EventDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @State private var viewModel: EventDetailViewModel
     
     init(event: Event) {
-        // This will be properly initialized in the onAppear modifier
-        let container = try! ModelContainer(for: Event.self, Timezone.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        // Initialize with default values, will be updated in onAppear
         _viewModel = State(initialValue: EventDetailViewModel(
-            modelContext: ModelContext(container),
+            modelContext: ModelContext(try! ModelContainer(for: Event.self, Timezone.self)),
             event: event
         ))
     }
@@ -127,6 +127,8 @@ struct EventDetailView: View {
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive) {
                 viewModel.deleteEvent()
+                // Post notification that an event was deleted
+                NotificationCenter.default.post(name: .eventDeleted, object: nil)
                 dismiss()
             }
         } message: {

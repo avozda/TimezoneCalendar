@@ -8,20 +8,13 @@ import Foundation
 
 extension Date {
     func convertToTimezone(from sourceIdentifier: String?, to destinationIdentifier: String) -> String {
-        let sourceTimeZone = sourceIdentifier.flatMap { TimeZone(identifier: $0) } ?? TimeZone.current
-        let destinationTimeZone = TimeZone(identifier: destinationIdentifier) ?? TimeZone.current
-        
-        let sourceOffset = sourceTimeZone.secondsFromGMT(for: self)
-        let destinationOffset = destinationTimeZone.secondsFromGMT(for: self)
-        let timeInterval = TimeInterval(destinationOffset - sourceOffset)
-        
-        let convertedDate = self.addingTimeInterval(timeInterval)
+        let converted = convertedToTimezone(from: sourceIdentifier, to: destinationIdentifier)
         
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM d, HH:mm"
         formatter.timeZone = TimeZone.current
         
-        return formatter.string(from: convertedDate)
+        return formatter.string(from: converted)
     }
     
     func convertedToTimezone(from sourceIdentifier: String?, to destinationIdentifier: String) -> Date {

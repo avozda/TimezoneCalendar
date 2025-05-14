@@ -20,6 +20,6 @@ struct TimezoneCalendarApp: App {
                 }
         }
         .modelContainer(appViewModel.modelContainer)
-                }
+    }
 }
 

@@ -8,15 +8,20 @@
 import SwiftUI
 import SwiftData
 
+// Import the Notification.Name extension from EventDetailView
+extension Notification.Name {
+    static let eventDeleted = Notification.Name("eventDeleted")
+}
+
 struct CalendarView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var viewModel: CalendarViewModel
     @State private var isAddingEvent = false
+    @State private var editingEvent: Event? = nil
     
     init() {
-        // This will be properly initialized in the onAppear modifier
-        let container = try! ModelContainer(for: Event.self, Timezone.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
-        _viewModel = State(initialValue: CalendarViewModel(modelContext: ModelContext(container)))
+        // Initialize with empty ViewModel, will be set in onAppear
+        _viewModel = State(initialValue: CalendarViewModel(modelContext: ModelContext(try! ModelContainer(for: Event.self, Timezone.self))))
     }
     
     var body: some View {
@@ -38,7 +43,7 @@ struct CalendarView: View {
                     List {
                         ForEach(viewModel.eventsForSelectedDate) { event in
                             NavigationLink(destination: EventDetailView(event: event)) {
-                                EventRow(event: event)
+                                EventRowView(event: event)
                                     .listRowSeparator(.hidden)
                                     .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                             }
@@ -56,186 +61,180 @@ struct CalendarView: View {
                     EditButton()
                 }
                 ToolbarItem {
-                    Button(action: { isAddingEvent = true }) {
+                    Button(action: { 
+                        editingEvent = nil
+                        isAddingEvent = true 
+                    }) {
                         Label("Add Event", systemImage: "plus")
                     }
                 }
             }
             .sheet(isPresented: $isAddingEvent) {
-                EventFormView(selectedDate: viewModel.selectedDate)
+                EventFormSheet(selectedDate: viewModel.selectedDate, existingEvent: editingEvent)
             }
         }
         .onAppear {
             viewModel = CalendarViewModel(modelContext: modelContext)
-        }
-    }
-}
-
-// EventDetailView has been moved to its own file
-
-struct AddEventView: View {
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var modelContext
-    @Query private var timezones: [Timezone]
-    
-    @State private var title = ""
-    @State private var dateTime: Date
-    @State private var selectedTimezoneID: PersistentIdentifier?
-    @State private var description = ""
-    
-    init(selectedDate: Date) {
-        _dateTime = State(initialValue: selectedDate)
-    }
-    
-    var defaultTimezone: Timezone? {
-        timezones.first(where: { $0.isDefault })
-    }
-    
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Event Details") {
-                    TextField("Title", text: $title)
-                    DatePicker("Date & Time", selection: $dateTime)
-                }
-                
-                Section("Description") {
-                    TextEditor(text: $description)
-                        .frame(minHeight: 100)
-                }
-                
-                Section("Timezone") {
-                    if timezones.isEmpty {
-                        Text("No timezones available. Default timezone will be used.")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Picker("Timezone", selection: $selectedTimezoneID) {
-                            if let defaultTZ = defaultTimezone {
-                                HStack {
-                                    Circle()
-                                        .fill(defaultTZ.color)
-                                        .frame(width: 12, height: 12)
-                                    Text("\(defaultTZ.name) (Default)")
-                                }
-                                .tag(defaultTZ.persistentModelID as PersistentIdentifier?)
-                            } else {
-                                Text("None")
-                                    .tag(nil as PersistentIdentifier?)
-                            }
-                            
-                            ForEach(timezones.filter { !$0.isDefault }) { timezone in
-                                HStack {
-                                    Circle()
-                                        .fill(timezone.color)
-                                        .frame(width: 12, height: 12)
-                                    Text(timezone.name)
-                                }
-                                .tag(timezone.persistentModelID as PersistentIdentifier?)
-                            }
-                        }
-                        .pickerStyle(.navigationLink)
-                        .onAppear {
-                            // Set default timezone as initial selection if available
-                            if selectedTimezoneID == nil, let defaultTZ = defaultTimezone {
-                                selectedTimezoneID = defaultTZ.persistentModelID
-                            }
-                        }
-                    }
-                }
-            }
-            .navigationTitle("Add Event")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        addEvent()
-                        dismiss()
-                    }
-                    .disabled(title.isEmpty)
-                }
-            }
-        }
-    }
-    
-    private func addEvent() {
-        let selectedTimezone = selectedTimezoneID.flatMap { id in
-            timezones.first { $0.persistentModelID == id }
-        }
-        
-        var eventTimezone = selectedTimezone
-        
-        // If no timezone is selected, use the default timezone
-        if eventTimezone == nil {
-            // Try to find the default timezone
-            eventTimezone = timezones.first(where: { $0.isDefault })
             
-            // If no default timezone exists, create one based on current timezone
-            if eventTimezone == nil {
-                let currentTZ = TimeZone.current
-                let newTimezone = Timezone(
-                    name: currentTZ.localizedName(for: .generic, locale: .current) ?? currentTZ.identifier,
-                    identifier: currentTZ.identifier,
-                    isDefault: true
-                )
-                modelContext.insert(newTimezone)
-                eventTimezone = newTimezone
+            // Setup notification observer for event deletion
+            NotificationCenter.default.addObserver(
+                forName: .eventDeleted,
+                object: nil,
+                queue: .main
+            ) { _ in
+                viewModel.fetchEvents()
             }
         }
-        
-        // Create a new event
-        let newEvent = Event(
-            title: title,
-            dateTime: dateTime,
-            timezone: eventTimezone,
-            description: description
-        )
-        
-        modelContext.insert(newEvent)
+        .onChange(of: isAddingEvent) { _, newValue in
+            if newValue == false {
+                // Sheet was dismissed, refresh events list
+                viewModel.fetchEvents()
+            }
+        }
+        .onDisappear {
+            // Remove notification observer when view disappears
+            NotificationCenter.default.removeObserver(self, name: .eventDeleted, object: nil)
+        }
     }
-}
-
-struct EventRow: View {
-    let event: Event
     
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(event.title)
-                    .font(.headline)
+    // Embedded EventRow (previously a separate file)
+    struct EventRowView: View {
+        let event: Event
+        @State private var viewModel: EventRowViewModel
+        
+        init(event: Event) {
+            self.event = event
+            _viewModel = State(initialValue: EventRowViewModel(event: event))
+        }
+        
+        var body: some View {
+            HStack(spacing: 12) {
+                if viewModel.hasTimezone {
+                    Rectangle()
+                        .fill(viewModel.timeColor)
+                        .frame(width: 4)
+                        .cornerRadius(2)
+                } else {
+                    Rectangle()
+                        .fill(.clear)
+                        .frame(width: 4)
+                }
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text(viewModel.event.title)
+                            .font(.headline)
+                    }
+                    
+                    HStack {
+                        Text(viewModel.event.localDateTime, format: .dateTime.hour(.twoDigits(amPM: .omitted)).minute())
+                            .font(.subheadline)
+                        
+                        if let timezone = viewModel.event.timezone {
+                            Text("(\(timezone.name))")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
                 
                 Spacer()
-                
-                if let timezone = event.timezone {
-                    Circle()
-                        .fill(timezone.color)
-                        .frame(width: 12, height: 12)
+            }
+            .padding(.vertical, 4)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(viewModel.backgroundColor)
+            )
+            .cornerRadius(8)
+        }
+    }
+    
+    // Embedded EventFormView (previously a separate file)
+    struct EventFormSheet: View {
+        @Environment(\.dismiss) private var dismiss
+        @Environment(\.modelContext) private var modelContext
+        @State private var viewModel: EventFormViewModel
+        
+        init(selectedDate: Date, existingEvent: Event? = nil) {
+            // Initialize with default values, will be updated in onAppear
+            _viewModel = State(initialValue: EventFormViewModel(
+                modelContext: ModelContext(try! ModelContainer(for: Event.self, Timezone.self)), 
+                selectedDate: selectedDate,
+                existingEvent: existingEvent
+            ))
+        }
+        
+        var body: some View {
+            NavigationStack {
+                Form {
+                    Section("Event Details") {
+                        TextField("Title", text: $viewModel.title)
+                        DatePicker("Date & Time", selection: $viewModel.dateTime)
+                    }
+                    
+                    Section("Description") {
+                        TextEditor(text: $viewModel.description)
+                            .frame(minHeight: 100)
+                    }
+                    
+                    Section("Timezone") {
+                        if viewModel.timezones.isEmpty {
+                            Text("No timezones available. Default timezone will be used.")
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Picker("Timezone", selection: $viewModel.selectedTimezoneID) {
+                                if let defaultTZ = viewModel.defaultTimezone {
+                                    HStack {
+                                        Circle()
+                                            .fill(defaultTZ.color)
+                                            .frame(width: 12, height: 12)
+                                        Text("\(defaultTZ.name) (Default)")
+                                    }
+                                    .tag(defaultTZ.persistentModelID as PersistentIdentifier?)
+                                } else {
+                                    Text("None")
+                                        .tag(nil as PersistentIdentifier?)
+                                }
+                                
+                                ForEach(viewModel.timezones.filter { !$0.isDefault }) { timezone in
+                                    HStack {
+                                        Circle()
+                                            .fill(timezone.color)
+                                            .frame(width: 12, height: 12)
+                                        Text(timezone.name)
+                                    }
+                                    .tag(timezone.persistentModelID as PersistentIdentifier?)
+                                }
+                            }
+                            .pickerStyle(.navigationLink)
+                        }
+                    }
+                }
+                .navigationTitle(viewModel.isEditing ? "Edit Event" : "Add Event")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") {
+                            dismiss()
+                        }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Save") {
+                            viewModel.saveEvent()
+                            dismiss()
+                        }
+                        .disabled(viewModel.title.isEmpty)
+                    }
                 }
             }
-            
-            HStack {
-                Image(systemName: "clock")
-                    .foregroundStyle(.secondary)
-                    .font(.footnote)
-                
-                Text(event.localDateTime, format: .dateTime.hour().minute())
-                    .foregroundStyle(.secondary)
-                    .font(.footnote)
-                
-                if let timezone = event.timezone {
-                    Text("(\(timezone.name))")
-                        .foregroundStyle(.secondary)
-                        .font(.footnote)
-                }
+            .onAppear {
+                viewModel = EventFormViewModel(
+                    modelContext: modelContext, 
+                    selectedDate: viewModel.dateTime,
+                    existingEvent: viewModel.existingEvent
+                )
             }
         }
-        .padding(10)
-        .background(Color(UIColor.secondarySystemBackground))
-        .cornerRadius(10)
     }
 }
 

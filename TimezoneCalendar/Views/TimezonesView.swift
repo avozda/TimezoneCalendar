@@ -12,11 +12,11 @@ struct TimezonesView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var viewModel: TimezonesViewModel
     @State private var isAddingTimezone = false
+    @State private var editingTimezone: Timezone? = nil
     
     init() {
-        // This will be properly initialized in the onAppear modifier
-        let container = try! ModelContainer(for: Event.self, Timezone.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
-        _viewModel = State(initialValue: TimezonesViewModel(modelContext: ModelContext(container)))
+        // Initialize with empty ViewModel, will be set in onAppear
+        _viewModel = State(initialValue: TimezonesViewModel(modelContext: ModelContext(try! ModelContainer(for: Event.self, Timezone.self))))
     }
     
     var body: some View {
@@ -45,6 +45,11 @@ struct TimezonesView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        editingTimezone = timezone
+                        isAddingTimezone = true
+                    }
                 }
                 .onDelete(perform: viewModel.deleteTimezones)
             }
@@ -54,13 +59,16 @@ struct TimezonesView: View {
                     EditButton()
                 }
                 ToolbarItem {
-                    Button(action: { isAddingTimezone = true }) {
+                    Button(action: { 
+                        editingTimezone = nil
+                        isAddingTimezone = true 
+                    }) {
                         Label("Add Timezone", systemImage: "plus")
                     }
                 }
             }
             .sheet(isPresented: $isAddingTimezone) {
-                TimezoneFormView()
+                TimezoneFormSheet(existingTimezone: editingTimezone)
             }
             .alert("Cannot Delete Default Timezone", isPresented: $viewModel.showingDefaultAlert) {
                 Button("OK", role: .cancel) { }
@@ -71,102 +79,88 @@ struct TimezonesView: View {
         .onAppear {
             viewModel = TimezonesViewModel(modelContext: modelContext)
         }
-    }
-}
-
-struct AddTimezoneView: View {
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var modelContext
-    
-    @State private var name = ""
-    @State private var selectedIdentifier = TimeZone.current.identifier
-    @State private var selectedColor = Color.blue
-    
-    let colorOptions: [Color] = [
-        .blue, .red, .green, .orange, .purple, .pink, .yellow, .teal, .indigo, .mint
-    ]
-    
-
-    func hexString(from color: Color) -> String {
-        let uiColor = UIColor(color)
-        var red: CGFloat = 0
-        var green: CGFloat = 0
-        var blue: CGFloat = 0
-        var alpha: CGFloat = 0
-        
-        uiColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
-        
-        return String(
-            format: "#%02X%02X%02X",
-            Int(red * 255),
-            Int(green * 255),
-            Int(blue * 255)
-        )
-    }
-    
-    var availableTimezones: [String] {
-        TimeZone.knownTimeZoneIdentifiers.sorted()
-    }
-    
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Timezone Name") {
-                    TextField("Name", text: $name)
-                }
-                
-                Section("Timezone") {
-                    Picker("Select Timezone", selection: $selectedIdentifier) {
-                        ForEach(availableTimezones, id: \.self) { identifier in
-                            Text(identifier)
-                        }
-                    }
-                }
-                
-                Section("Color") {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            ForEach(colorOptions, id: \.self) { color in
-                                Circle()
-                                    .fill(color)
-                                    .frame(width: 30, height: 30)
-                                    .overlay(
-                                        Circle()
-                                            .stroke(Color.primary, lineWidth: selectedColor == color ? 2 : 0)
-                                            .padding(2)
-                                    )
-                                    .onTapGesture {
-                                        selectedColor = color
-                                    }
-                            }
-                        }
-                        .padding(.vertical, 8)
-                    }
-                }
-            }
-            .navigationTitle("Add Timezone")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        addTimezone()
-                        dismiss()
-                    }
-                    .disabled(name.isEmpty)
-                }
+        .onChange(of: isAddingTimezone) { _, newValue in
+            if newValue == false {
+                // Sheet was dismissed, refresh timezones list
+                viewModel.fetchTimezones()
             }
         }
     }
     
-    private func addTimezone() {
-        let colorHex = hexString(from: selectedColor)
-        let newTimezone = Timezone(name: name, identifier: selectedIdentifier, colorHex: colorHex)
-        modelContext.insert(newTimezone)
+    // Embedded TimezoneFormView (previously a separate file)
+    struct TimezoneFormSheet: View {
+        @Environment(\.dismiss) private var dismiss
+        @Environment(\.modelContext) private var modelContext
+        @State private var viewModel: TimezoneFormViewModel
+        
+        init(existingTimezone: Timezone? = nil) {
+            // Initialize with default values, will be updated in onAppear
+            _viewModel = State(initialValue: TimezoneFormViewModel(
+                modelContext: ModelContext(try! ModelContainer(for: Event.self, Timezone.self)),
+                existingTimezone: existingTimezone
+            ))
+        }
+        
+        var body: some View {
+            NavigationStack {
+                Form {
+                    Section("Timezone Name") {
+                        TextField("Name", text: $viewModel.name)
+                    }
+                    
+                    Section("Timezone") {
+                        Picker("Select Timezone", selection: $viewModel.selectedIdentifier) {
+                            ForEach(viewModel.availableTimezones, id: \.self) { identifier in
+                                Text(identifier)
+                            }
+                        }
+                    }
+                    
+                    Section("Color") {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 10) {
+                                ForEach(viewModel.colorOptions, id: \.self) { color in
+                                    Circle()
+                                        .fill(color)
+                                        .frame(width: 30, height: 30)
+                                        .overlay(
+                                            Circle()
+                                                .stroke(Color.primary, lineWidth: viewModel.selectedColor == color ? 2 : 0)
+                                                .padding(2)
+                                        )
+                                        .onTapGesture {
+                                            viewModel.selectedColor = color
+                                        }
+                                }
+                            }
+                            .padding(.vertical, 8)
+                        }
+                    }
+                }
+                .navigationTitle(viewModel.isEditing ? "Edit Timezone" : "Add Timezone")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") {
+                            dismiss()
+                        }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Save") {
+                            viewModel.saveTimezone()
+                            dismiss()
+                        }
+                        .disabled(viewModel.name.isEmpty)
+                    }
+                }
+            }
+            .onAppear {
+                viewModel = TimezoneFormViewModel(
+                    modelContext: modelContext,
+                    existingTimezone: viewModel.existingTimezone
+                )
+            }
+        }
     }
 }
 
