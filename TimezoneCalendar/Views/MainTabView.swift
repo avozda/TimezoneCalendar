@@ -27,8 +27,3 @@ struct MainTabView: View {
         }
     }
 }
-
-#Preview {
-    MainTabView()
-        .modelContainer(for: [Event.self, Timezone.self], inMemory: true)
-} 

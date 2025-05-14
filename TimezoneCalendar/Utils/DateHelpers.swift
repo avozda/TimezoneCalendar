@@ -7,7 +7,8 @@
 import Foundation
 
 extension Date {
-    func convertToTimezone(from sourceIdentifier: String?, to destinationIdentifier: String) -> String {
+    // Convert date to string in a specific timezone
+    func convertToTimezoneString(from sourceIdentifier: String?, to destinationIdentifier: String) -> String {
         let converted = convertedToTimezone(from: sourceIdentifier, to: destinationIdentifier)
         
         let formatter = DateFormatter()
@@ -17,6 +18,7 @@ extension Date {
         return formatter.string(from: converted)
     }
     
+    // Convert date to date in a specific timezone
     func convertedToTimezone(from sourceIdentifier: String?, to destinationIdentifier: String) -> Date {
         let sourceTimeZone = sourceIdentifier.flatMap { TimeZone(identifier: $0) } ?? TimeZone.current
         let destinationTimeZone = TimeZone(identifier: destinationIdentifier) ?? TimeZone.current
