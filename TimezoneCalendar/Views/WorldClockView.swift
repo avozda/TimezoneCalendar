@@ -10,22 +10,13 @@ import SwiftData
 
 struct WorldClockView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query private var timezones: [Timezone]
-    @Query private var events: [Event]
-    
-    @State private var currentDate = Date()
+    @State private var viewModel: WorldClockViewModel
     @State private var timer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
-    @State private var showingAllEvents = false
     
-    var upcomingAllEvents: [Event] {
-        let calendar = Calendar.current
-        let now = Date()
-        let nextWeek = calendar.date(byAdding: .day, value: 7, to: now) ?? now
-        
-        return events.filter { event in
-            event.dateTime >= now &&
-            event.dateTime <= nextWeek
-        }.sorted { $0.dateTime < $1.dateTime }
+    init() {
+        // This will be properly initialized in the onAppear modifier
+        let container = try! ModelContainer(for: Event.self, Timezone.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        _viewModel = State(initialValue: WorldClockViewModel(modelContext: ModelContext(container)))
     }
     
     var body: some View {
@@ -33,7 +24,7 @@ struct WorldClockView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     // Upcoming events section
-                    if !upcomingAllEvents.isEmpty {
+                    if !viewModel.upcomingAllEvents.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
                                 Text("Upcoming Events")
@@ -41,8 +32,8 @@ struct WorldClockView: View {
                                 
                                 Spacer()
                                 
-                                Button(action: { showingAllEvents.toggle() }) {
-                                    Text(showingAllEvents ? "Show Less" : "Show All")
+                                Button(action: { viewModel.toggleShowingAllEvents() }) {
+                                    Text(viewModel.showingAllEvents ? "Show Less" : "Show All")
                                         .font(.subheadline)
                                 }
                             }
@@ -50,8 +41,8 @@ struct WorldClockView: View {
                             
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 12) {
-                                    ForEach(showingAllEvents ? upcomingAllEvents : Array(upcomingAllEvents.prefix(5))) { event in
-                                        EventCard(event: event, currentDate: currentDate)
+                                    ForEach(viewModel.showingAllEvents ? viewModel.upcomingAllEvents : Array(viewModel.upcomingAllEvents.prefix(5))) { event in
+                                        EventCard(event: event, currentDate: viewModel.currentDate)
                                     }
                                 }
                                 .padding(.horizontal)
@@ -62,7 +53,7 @@ struct WorldClockView: View {
                     
                     // World clocks
                     LazyVStack(spacing: 16) {
-                        if timezones.isEmpty {
+                        if viewModel.timezones.isEmpty {
                             ContentUnavailableView(
                                 "No Timezones",
                                 systemImage: "globe",
@@ -70,9 +61,13 @@ struct WorldClockView: View {
                             )
                             .padding()
                         } else {
-                            ForEach(timezones) { timezone in
-                                WorldClockCard(timezone: timezone, currentDate: currentDate, events: upcomingEvents(for: timezone))
-                                    .padding(.horizontal)
+                            ForEach(viewModel.timezones) { timezone in
+                                WorldClockCard(
+                                    timezone: timezone, 
+                                    viewModel: viewModel, 
+                                    events: viewModel.upcomingEvents(for: timezone)
+                                )
+                                .padding(.horizontal)
                             }
                         }
                     }
@@ -81,22 +76,12 @@ struct WorldClockView: View {
             }
             .navigationTitle("World Clock")
             .onReceive(timer) { _ in
-                currentDate = Date()
+                viewModel.updateCurrentTime()
             }
         }
-    }
-    
-    // Get upcoming events for a specific timezone (next 24 hours)
-    private func upcomingEvents(for timezone: Timezone) -> [Event] {
-        let calendar = Calendar.current
-        let now = Date()
-        let tomorrow = calendar.date(byAdding: .day, value: 1, to: now) ?? now
-        
-        return events.filter { event in
-            event.timezone?.id == timezone.id &&
-            event.dateTime >= now &&
-            event.dateTime <= tomorrow
-        }.sorted { $0.dateTime < $1.dateTime }
+        .onAppear {
+            viewModel = WorldClockViewModel(modelContext: modelContext)
+        }
     }
 }
 
@@ -173,7 +158,7 @@ struct EventCard: View {
 
 struct WorldClockCard: View {
     let timezone: Timezone
-    let currentDate: Date
+    let viewModel: WorldClockViewModel
     let events: [Event]
     
     var body: some View {
@@ -196,16 +181,16 @@ struct WorldClockCard: View {
             }
             
             HStack(alignment: .firstTextBaseline) {
-                Text(formattedTime(for: timezone))
+                Text(viewModel.formattedTime(for: timezone))
                     .font(.system(size: 42, weight: .medium, design: .rounded))
                 
-                Text(timeOffset(for: timezone))
+                Text(viewModel.timeOffset(for: timezone))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.leading, 4)
             }
             
-            Text(formattedDate(for: timezone))
+            Text(viewModel.formattedDate(for: timezone))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             
@@ -246,40 +231,6 @@ struct WorldClockCard: View {
         )
         .listRowSeparator(.hidden)
         .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-    }
-    
-    // Format the current time for the timezone
-    private func formattedTime(for timezone: Timezone) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        formatter.timeZone = TimeZone(identifier: timezone.identifier) ?? TimeZone.current
-        return formatter.string(from: currentDate)
-    }
-    
-    // Format the current date for the timezone
-    private func formattedDate(for timezone: Timezone) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEE, MMM d"
-        formatter.timeZone = TimeZone(identifier: timezone.identifier) ?? TimeZone.current
-        return formatter.string(from: currentDate)
-    }
-    
-    // Calculate time offset from current timezone
-    private func timeOffset(for timezone: Timezone) -> String {
-        let currentTZ = TimeZone.current
-        let targetTZ = TimeZone(identifier: timezone.identifier) ?? TimeZone.current
-        
-        let currentOffset = currentTZ.secondsFromGMT(for: currentDate)
-        let targetOffset = targetTZ.secondsFromGMT(for: currentDate)
-        let difference = (targetOffset - currentOffset) / 3600
-        
-        if difference == 0 {
-            return "Same time"
-        } else if difference > 0 {
-            return "+\(difference)h"
-        } else {
-            return "\(difference)h"
-        }
     }
 }
 

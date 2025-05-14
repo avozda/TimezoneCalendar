@@ -10,14 +10,19 @@ import SwiftData
 
 struct TimezonesView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query private var timezones: [Timezone]
+    @State private var viewModel: TimezonesViewModel
     @State private var isAddingTimezone = false
-    @State private var showingDefaultAlert = false
+    
+    init() {
+        // This will be properly initialized in the onAppear modifier
+        let container = try! ModelContainer(for: Event.self, Timezone.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        _viewModel = State(initialValue: TimezonesViewModel(modelContext: ModelContext(container)))
+    }
     
     var body: some View {
         NavigationStack {
             List {
-                ForEach(timezones) { timezone in
+                ForEach(viewModel.timezones) { timezone in
                     HStack {
                         Circle()
                             .fill(timezone.color)
@@ -41,7 +46,7 @@ struct TimezonesView: View {
                         }
                     }
                 }
-                .onDelete(perform: deleteTimezones)
+                .onDelete(perform: viewModel.deleteTimezones)
             }
             .navigationTitle("Timezones")
             .toolbar {
@@ -55,27 +60,16 @@ struct TimezonesView: View {
                 }
             }
             .sheet(isPresented: $isAddingTimezone) {
-                AddTimezoneView()
+                TimezoneFormView()
             }
-            .alert("Cannot Delete Default Timezone", isPresented: $showingDefaultAlert) {
+            .alert("Cannot Delete Default Timezone", isPresented: $viewModel.showingDefaultAlert) {
                 Button("OK", role: .cancel) { }
             } message: {
                 Text("The default timezone cannot be deleted.")
             }
         }
-    }
-    
-    private func deleteTimezones(offsets: IndexSet) {
-        withAnimation {
-            for index in offsets {
-                let timezone = timezones[index]
-                // Show alert if it is the default timezone
-                if timezone.isDefault {
-                    showingDefaultAlert = true
-                } else {
-                    modelContext.delete(timezone)
-                }
-            }
+        .onAppear {
+            viewModel = TimezonesViewModel(modelContext: modelContext)
         }
     }
 }

@@ -10,12 +10,18 @@ import SwiftData
 
 struct EventRow: View {
     let event: Event
+    @State private var viewModel: EventRowViewModel
+    
+    init(event: Event) {
+        self.event = event
+        _viewModel = State(initialValue: EventRowViewModel(event: event))
+    }
     
     var body: some View {
         HStack(spacing: 12) {
-            if let timezone = event.timezone {
+            if viewModel.hasTimezone {
                 Rectangle()
-                    .fill(timezone.color)
+                    .fill(viewModel.timeColor)
                     .frame(width: 4)
                     .cornerRadius(2)
             } else {
@@ -26,21 +32,15 @@ struct EventRow: View {
             
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
-                    Text(event.title)
+                    Text(viewModel.event.title)
                         .font(.headline)
-                    
-                    if event.isRecurring {
-                        Image(systemName: "repeat")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
                 }
                 
                 HStack {
-                    Text(event.localDateTime, format: .dateTime.hour(.twoDigits(amPM: .omitted)).minute())
+                    Text(viewModel.event.localDateTime, format: .dateTime.hour(.twoDigits(amPM: .omitted)).minute())
                         .font(.subheadline)
                     
-                    if let timezone = event.timezone {
+                    if let timezone = viewModel.event.timezone {
                         Text("(\(timezone.name))")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
@@ -53,7 +53,7 @@ struct EventRow: View {
         .padding(.vertical, 4)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(event.timezone?.color.opacity(0.1) ?? Color.clear)
+                .fill(viewModel.backgroundColor)
         )
         .cornerRadius(8)
     }
