@@ -142,18 +142,3 @@ struct EventDetailView: View {
         }
     }
 }
-
-#Preview {
-    // Creating a sample event for preview
-    let event = Event(
-        title: "Sample Event",
-        dateTime: Date(),
-        timezone: nil,
-        description: "This is a sample event description."
-    )
-    
-    return NavigationStack {
-        EventDetailView(event: event)
-    }
-    .modelContainer(for: [Event.self, Timezone.self], inMemory: true)
-} 

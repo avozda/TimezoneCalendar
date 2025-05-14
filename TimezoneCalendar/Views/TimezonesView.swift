@@ -163,8 +163,3 @@ struct TimezonesView: View {
         }
     }
 }
-
-#Preview {
-    TimezonesView()
-        .modelContainer(for: Timezone.self, inMemory: true)
-} 

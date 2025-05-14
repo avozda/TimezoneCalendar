@@ -232,8 +232,3 @@ struct WorldClockCard: View {
         .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
     }
 }
-
-#Preview {
-    WorldClockView()
-        .modelContainer(for: [Event.self, Timezone.self], inMemory: true)
-} 

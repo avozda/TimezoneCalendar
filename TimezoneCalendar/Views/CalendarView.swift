@@ -237,9 +237,3 @@ struct CalendarView: View {
         }
     }
 }
-
-#Preview {
-    CalendarView()
-        .modelContainer(for: [Event.self, Timezone.self], inMemory: true)
-} 
-
