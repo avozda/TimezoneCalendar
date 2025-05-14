@@ -26,7 +26,7 @@ class AppViewModel {
             do {
                 let context = modelContainer.mainContext
                 
-                // Check if we already have a default timezone
+                // Check if there is already a default timezone
                 let descriptor = FetchDescriptor<Timezone>(predicate: #Predicate { $0.isDefault == true })
                 let defaultTimezones = try context.fetch(descriptor)
                 

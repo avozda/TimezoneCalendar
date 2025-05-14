@@ -62,7 +62,7 @@ class WorldClockViewModel {
         }.sorted { $0.dateTime < $1.dateTime }
     }
     
-    // Format helpers
+    // format time to string
     func formattedTime(for timezone: Timezone) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm"

@@ -21,7 +21,6 @@ class EventFormViewModel {
         fetchTimezones()
         
         if let event = existingEvent {
-            // Populate the form with existing event data
             self.isEditing = true
             self.title = event.title
             self.dateTime = event.dateTime
@@ -60,30 +59,15 @@ class EventFormViewModel {
         
         // If no timezone is selected, use the default timezone
         if eventTimezone == nil {
-            // Try to find the default timezone
             eventTimezone = timezones.first(where: { $0.isDefault })
-            
-            // If no default timezone exists, create one based on current timezone
-            if eventTimezone == nil {
-                let currentTZ = TimeZone.current
-                let newTimezone = Timezone(
-                    name: currentTZ.localizedName(for: .generic, locale: .current) ?? currentTZ.identifier,
-                    identifier: currentTZ.identifier,
-                    isDefault: true
-                )
-                modelContext.insert(newTimezone)
-                eventTimezone = newTimezone
-            }
         }
         
         if isEditing, let event = existingEvent {
-            // Update existing event
             event.title = title
             event.dateTime = dateTime
             event.timezone = eventTimezone
             event.eventDescription = description
         } else {
-            // Create new event
             let newEvent = Event(
                 title: title, 
                 dateTime: dateTime, 
